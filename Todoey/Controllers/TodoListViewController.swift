@@ -7,34 +7,25 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListViewController: UITableViewController {
 
     //var itemArray = ["Find Mike", "Buy Eggoes", "Respond to emails"]
     var itemArray = [Item]()
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
+    //let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
     
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        print(dataFilePath!)
-//        let item = Item()
-//        item.title = "Find Mike"
-//        itemArray.append(item)
-//        let item2 = Item()
-//        item2.title = "Buy Eggoes"
-//        itemArray.append(item2)
-//        let item3 = Item()
-//        item3.title = "Respond to emails"
-//        itemArray.append(item3)
+        //print(dataFilePath)
+        
         loadItems()
         
-//        if let items = defaults.array(forKey: "TodoListArray") as? [Item] {
-//            itemArray = items
-//        }
     }
 
     //MARK - TableView Datasource Methods
@@ -63,6 +54,16 @@ class TodoListViewController: UITableViewController {
         //print(itemArray[indexPath.row])
         itemArray[indexPath.row].done = !itemArray[indexPath.row].done
         
+        //CRUD UPDATE
+        //itemArray[indexPath.row].setValue("Completed", forKey: "title")
+        
+        //CRUD DELETE
+        //second line is to remove empty reference cell in itemArray for displaying tableview
+        //these 2 lines order matters! otherwise will result in indexOutOfBound Error
+//        context.delete(itemArray[indexPath.row])
+//        itemArray.remove(at: indexPath.row)
+        
+        
         saveItems()
         //add a flash effect
         tableView.deselectRow(at: indexPath, animated: true)
@@ -87,8 +88,11 @@ class TodoListViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             
             // what will happen once the user clicks the add item button
-            let item = Item()
+            
+            let item = Item(context: self.context)
+            
             item.title = textField.text!
+            item.done = false
             self.itemArray.append(item)
             
             self.saveItems()
@@ -103,30 +107,68 @@ class TodoListViewController: UITableViewController {
     
     
     func saveItems() {
-        let encoder = PropertyListEncoder()
         do {
-            let data = try encoder.encode(itemArray)
-            try data.write(to: dataFilePath!)
+            //Commit changes in context to persistent container
+            try context.save()
         }
         catch {
-            print("Error when encoding data: \(error)")
+            print("Error saving context: \(error)")
         }
         
-        self.tableView.reloadData()
+        tableView.reloadData()
     }
     
     
-    func loadItems() {
-        let data = try? Data(contentsOf: dataFilePath!)
-        let decoder = PropertyListDecoder()
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+        
         do {
-            itemArray = try decoder.decode([Item].self, from: data!)
+            itemArray = try context.fetch(request)
         }
         catch {
-            print("Error during decoding data: \(error)")
+            print("Error fetching items from context: \(error)")
         }
+        
+        tableView.reloadData()
+    }
+
+}
+
+//MARK: Search bar methods
+//when need to conform to a protocol/become a delegate,
+//we should create an extension and group these delegate methods together
+//easy to debug and better organized
+
+extension TodoListViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        //print(searchBar.text!)  //will print search content
+        
+        //fetch all the items in context
+        let request: NSFetchRequest<Item> = Item.fetchRequest()
+        
+        //add a filter
+        request.predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        //add a sort method
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request)
         
     }
     
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            //when loading items in other background threads
+            //try firstly dismiss the searchbar in main thread,
+            //dont want to wait for load data to complete
+            //not freeze our app
+            DispatchQueue.main.async {
+                //back to original state, disable keyboard entering and cursor at searchbar
+                searchBar.resignFirstResponder()
+            }
+        
+        }
+    }
 }
 
