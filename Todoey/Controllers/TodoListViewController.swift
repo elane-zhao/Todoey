@@ -14,6 +14,12 @@ class TodoListViewController: UITableViewController {
     //var itemArray = ["Find Mike", "Buy Eggoes", "Respond to emails"]
     var itemArray = [Item]()
     
+    var selectedCategory: Category? {
+        didSet {
+            loadItems()
+        }
+    }
+    
     //let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
     
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
@@ -23,8 +29,6 @@ class TodoListViewController: UITableViewController {
         // Do any additional setup after loading the view, typically from a nib.
         
         //print(dataFilePath)
-        
-        loadItems()
         
     }
 
@@ -93,6 +97,8 @@ class TodoListViewController: UITableViewController {
             
             item.title = textField.text!
             item.done = false
+            //add parent category
+            item.parentCategory = self.selectedCategory
             self.itemArray.append(item)
             
             self.saveItems()
@@ -119,7 +125,16 @@ class TodoListViewController: UITableViewController {
     }
     
     
-    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest()) {
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        //request.predicate = categoryPredicate
+        
+        if let searchPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, searchPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
         
         do {
             itemArray = try context.fetch(request)
@@ -152,7 +167,7 @@ extension TodoListViewController: UISearchBarDelegate {
         //add a sort method
         request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
         
-        loadItems(with: request)
+        loadItems(with: request, predicate: request.predicate)
         
     }
     

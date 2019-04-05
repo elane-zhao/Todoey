@@ -21,7 +21,10 @@ class CategoryViewController: UITableViewController {
         loadCategories()
     }
 
+    
     // MARK: - Table view data source methods
+    
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return categoryArray.count
     }
@@ -35,8 +38,57 @@ class CategoryViewController: UITableViewController {
     
     
     
+    // MARK: - Table View Delegate methods
+    
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        
+        performSegue(withIdentifier: "goToItems", sender: self)
+    }
+    
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        
+        let destinationVC = segue.destination as! TodoListViewController
+        
+        if let indexPath = self.tableView.indexPathForSelectedRow {
+            destinationVC.selectedCategory = categoryArray[indexPath.row]
+        }
+        
+    }
+    
+    
+    //MARK: - add a Category
+    
+    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+        
+        //create a textField variable to store the alertTextField data inside the closure
+        var textField = UITextField()
+        
+        let alert = UIAlertController(title: "Add New Todoey Category", message: "", preferredStyle: .alert)
+        
+        let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
+            
+            // what will happen once the user clicks the add category button
+            let category = Category(context: self.context)
+            category.name = textField.text!
+            
+            self.categoryArray.append(category)
+            self.saveCategories()
+            
+        }
+        
+        alert.addTextField { (alertTextField) in
+            alertTextField.placeholder = "Create a new category..."
+            textField = alertTextField
+        }
+        alert.addAction(action)
+        
+        present(alert, animated: true, completion: nil)
+    }
+    
     
     // MARK: - Data Manipulate methods, load data and save data
+    
     
     func saveCategories() {
         
@@ -62,41 +114,4 @@ class CategoryViewController: UITableViewController {
         
     }
 
-
-    //MARK: - add a Category
-    
-    @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
-        
-        //create a textField variable to store the alertTextField data inside the closure
-        var textField = UITextField()
-        
-        let alert = UIAlertController(title: "Add New Todoey Category", message: "", preferredStyle: .alert)
-        
-        alert.addTextField { (alertTextField) in
-            alertTextField.placeholder = "Create a new category..."
-            textField = alertTextField
-        }
-        
-        let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
-            
-            // what will happen once the user clicks the add category button
-            
-            let category = Category(context: self.context)
-            category.name = textField.text!
-            
-            self.categoryArray.append(category)
-            self.saveCategories()
-            
-        }
-        alert.addAction(action)
-        
-        present(alert, animated: true, completion: nil)
-    }
-    
-    
-    // MARK: - Table View Delegate methods
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        
-    }
-    
 }
