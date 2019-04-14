@@ -8,9 +8,11 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class TodoListViewController: UITableViewController {
+class TodoListViewController: SwipeTableViewController {
 
+    @IBOutlet weak var searchBar: UISearchBar!
     let realm = try! Realm()
     var todoItems: Results<Item>?
     
@@ -22,16 +24,54 @@ class TodoListViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
         // Do any additional setup after loading the view, typically from a nib.
+
         
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        
+        guard let hexColor = selectedCategory?.hexColor else { fatalError() }
+            
+        title = selectedCategory!.name
+    
+        updateNavbar(withHexColor: hexColor)
+            
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        
+        updateNavbar(withHexColor: "1D9BF6")
+        
+    }
+    
+    func updateNavbar(withHexColor hexColor: String) {
+        
+        guard let navBar = navigationController?.navigationBar else {
+            fatalError("navigation controller does not exist")
+        }
+        guard let navbarColor = UIColor(hexString: hexColor) else { fatalError() }
+        
+        searchBar.barTintColor = navbarColor
+        
+        navBar.barTintColor = navbarColor
+        
+        navBar.tintColor = ContrastColorOf(navbarColor, returnFlat: true)
+        
+        navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor: ContrastColorOf(navbarColor, returnFlat: true)]
+    
+    }
+    
+    
     //MARK - TableView Datasource Methods
+    
     
     //how to display the cell in table
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        //let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = todoItems?[indexPath.row] {
             // textLabel is the main content of a table cell
@@ -39,6 +79,12 @@ class TodoListViewController: UITableViewController {
             
             //add a checkmark effect
             cell.accessoryType = item.done ? .checkmark : .none
+            
+            if let color = UIColor(hexString: selectedCategory!.hexColor)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(todoItems!.count)) {
+                cell.backgroundColor = color
+                cell.textLabel?.textColor = ContrastColorOf(color, returnFlat: true)
+            }
+            
         }
         else {
             cell.textLabel?.text = "No Item Added..."
@@ -117,9 +163,27 @@ class TodoListViewController: UITableViewController {
     
     func loadItems() {
 
-        todoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
+        todoItems = selectedCategory?.items.sorted(byKeyPath: "dateCreated", ascending: true)
 
         tableView.reloadData()
+    }
+    
+    //MARK: - Delete Data from Swipe
+    
+    override func updateModel(at indexPath: IndexPath) {
+        // handle action by updating model with deletion
+        //if let categoryToDelete = self.categories?[indexPath.row] {
+        if let itemToDelete = self.todoItems?[indexPath.row] {
+            
+            do {
+                try self.realm.write {
+                    self.realm.delete(itemToDelete)
+                }
+            } catch {
+                print("Error deleting item")
+            }
+            
+        }
     }
 
 }
@@ -133,7 +197,7 @@ extension TodoListViewController: UISearchBarDelegate {
 
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         //print(searchBar.text!)  //will print search content
-        todoItems = todoItems?.filter("title CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "dateCreated", ascending: true)
+        todoItems = todoItems?.filter("title CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "title", ascending: true)
         tableView.reloadData()
 
 //        //fetch all the items in context
